@@ -98,7 +98,6 @@ def get_peak_fwhm_with_dt_corr(
     guess=None,
     kev=False,
     frac_max=0.5,
-    bin_width=1,
     allow_tail_drop=False,
     display=0,
 ):
@@ -112,6 +111,7 @@ def get_peak_fwhm_with_dt_corr(
     )
     ct_energy = np.add(correction, energies)
 
+    bin_width = 1
     lower_bound = (np.nanmin(ct_energy) // bin_width) * bin_width
     upper_bound = ((np.nanmax(ct_energy) // bin_width) + 1) * bin_width
     hist, bins, var = pgh.get_hist(
@@ -143,7 +143,6 @@ def get_peak_fwhm_with_dt_corr(
             tol=tol,
             guess=guess,
             allow_tail_drop=allow_tail_drop,
-            bin_width=bin_width,
             display=display,
         )
         if display > 0:
@@ -199,7 +198,7 @@ def get_peak_fwhm_with_dt_corr(
             plt.show()
 
     except Exception:
-        return np.nan, np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, None
+        return np.nan, np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, np.nan, np.nan, None
 
     if kev is True:
         fwhm *= peak / energy_pars["mu"]
@@ -213,6 +212,8 @@ def get_peak_fwhm_with_dt_corr(
         chisqr,
         energy_pars["n_sig"],
         energy_err["n_sig"],
+        energy_pars["mu"],
+        energy_err["mu"],
         energy_pars,
     )
 
@@ -230,7 +231,6 @@ def fom_fwhm_with_alpha_fit(
     energies = energies.astype("float64")
     peak = kwarg_dict["peak"]
     kev_width = kwarg_dict["kev_width"]
-    bin_width = kwarg_dict.get("bin_width", 1)
     min_alpha = 0
     max_alpha = 3.50e-06
     alphas = np.linspace(min_alpha, max_alpha, nsteps, dtype="float64")
@@ -262,6 +262,8 @@ def fom_fwhm_with_alpha_fit(
                 _,
                 _,
                 _,
+                _,
+                _,
                 fit_pars,
             ) = get_peak_fwhm_with_dt_corr(
                 energies,
@@ -272,7 +274,6 @@ def fom_fwhm_with_alpha_fit(
                 kev_width,
                 guess=None,
                 frac_max=0.5,
-                bin_width=bin_width,
                 allow_tail_drop=False,
             )
             if not np.isnan(fwhm_o_max):
@@ -351,6 +352,8 @@ def fom_fwhm_with_alpha_fit(
             n_sig,
             n_sig_err,
             _,
+            _,
+            _,
         ) = get_peak_fwhm_with_dt_corr(
             energies,
             alpha,
@@ -362,7 +365,6 @@ def fom_fwhm_with_alpha_fit(
             kev=True,
             frac_max=frac_max,
             allow_tail_drop=True,
-            bin_width=bin_width,
             display=display,
         )
         if np.isnan(final_fwhm) or np.isnan(final_err):
@@ -390,7 +392,7 @@ def fom_fwhm_with_alpha_fit(
 
 
 def fom_fwhm_no_alpha_sweep(
-    tb_in, kwarg_dict, ctc_param=None, alpha=0, idxs=None, frac_max=0.5, display=0
+    tb_in, kwarg_dict, ctc_param=None, alpha=0, idxs=None, frac_max=0.5, kev=True, display=0
 ):
     """
     FOM with no ctc sweep, used for optimising ftp.
@@ -402,7 +404,6 @@ def fom_fwhm_no_alpha_sweep(
     peak = kwarg_dict["peak"]
     kev_width = kwarg_dict["kev_width"]
     alpha = kwarg_dict.get("alpha", alpha)
-    bin_width = kwarg_dict.get("bin_width", 1)
     if isinstance(alpha, dict):
         alpha = alpha[parameter]
     if "ctc_param" in kwarg_dict or ctc_param is not None:
@@ -428,6 +429,9 @@ def fom_fwhm_no_alpha_sweep(
             "chisquare": np.nan,
             "n_sig": np.nan,
             "n_sig_err": np.nan,
+            "mu": np.nan,
+            "mu_err": np.nan,
+            "fit_pars": np.nan,
         }
     (
         fwhm,
@@ -437,6 +441,8 @@ def fom_fwhm_no_alpha_sweep(
         csqr,
         n_sig,
         n_sig_err,
+        mu,
+        mu_err,
         fit_pars,
     ) = get_peak_fwhm_with_dt_corr(
         energies,
@@ -446,8 +452,7 @@ def fom_fwhm_no_alpha_sweep(
         peak=peak,
         kev_width=kev_width,
         frac_max=frac_max,
-        kev=True,
-        bin_width=bin_width,
+        kev=kev,
         display=display,
     )
     return {
@@ -458,6 +463,9 @@ def fom_fwhm_no_alpha_sweep(
         "chisquare": csqr,
         "n_sig": n_sig,
         "n_sig_err": n_sig_err,
+        "mu": mu,
+        "mu_err": mu_err,
+        "fit_pars": fit_pars,
     }
 
 
