@@ -181,7 +181,7 @@ def dplms_ge_dict(
             res["chisquare"],
         )
         p_val = chi2.sf(chisquare[0], chisquare[1])
-        print(
+        log.info(
             f"FWHM = {fwhm:.2f} ± {fwhm_err:.2f} keV, p_val={p_val} evaluated in {time.time()-t_tmp:.1f} s"
         )
         grid_dict[i]["fwhm"] = fwhm
@@ -220,13 +220,13 @@ def dplms_ge_dict(
                 pt_coeff,
             ]
         ):
-            print(
+            log.info(
                 f"\nBest case: FWHM = {fwhm:.2f} ± {fwhm_err:.2f} keV, ctc {alpha}"
             )
         else:
-            print("Some values are missing in the best case results")
+            log.debug("Some values are missing in the best case results")
     else:
-        print("Filter synthesis failed")
+        log.debug("Filter synthesis failed")
         nm_coeff = dplms_dict["dp_def"]["nm"]
         ft_coeff = dplms_dict["dp_def"]["ft"]
         rt_coeff = dplms_dict["dp_def"]["rt"]

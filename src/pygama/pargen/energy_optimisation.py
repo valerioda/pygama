@@ -199,7 +199,18 @@ def get_peak_fwhm_with_dt_corr(
             plt.show()
 
     except Exception:
-        return np.nan, np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, np.nan, np.nan, None
+        return (
+            np.nan,
+            np.nan,
+            np.nan,
+            np.nan,
+            (np.nan, np.nan),
+            np.nan,
+            np.nan,
+            np.nan,
+            np.nan,
+            None,
+        )
 
     if kev is True:
         fwhm *= peak / energy_pars["mu"]
@@ -395,7 +406,14 @@ def fom_fwhm_with_alpha_fit(
 
 
 def fom_fwhm_no_alpha_sweep(
-    tb_in, kwarg_dict, ctc_param=None, alpha=0, idxs=None, frac_max=0.5, kev=True, display=0
+    tb_in,
+    kwarg_dict,
+    ctc_param=None,
+    alpha=0,
+    idxs=None,
+    frac_max=0.5,
+    kev=True,
+    display=0,
 ):
     """
     FOM with no ctc sweep, used for optimising ftp.
@@ -407,7 +425,6 @@ def fom_fwhm_no_alpha_sweep(
     peak = kwarg_dict["peak"]
     kev_width = kwarg_dict["kev_width"]
     alpha = kwarg_dict.get("alpha", alpha)
-    bin_width = kwarg_dict.get("bin_width", 1)
     if isinstance(alpha, dict):
         alpha = alpha[parameter]
     if "ctc_param" in kwarg_dict or ctc_param is not None:
