@@ -656,6 +656,7 @@ class HPGeCalibration:
                 "p_value": p_val,
                 "position": mu,
                 "position_uncertainty": mu_err,
+                "n_events": n_events,
             }
 
         results_dict["peak_parameters"] = fit_dict
@@ -687,14 +688,14 @@ class HPGeCalibration:
             for peak in fit_dict
             if fit_dict[peak]["validity"]
         ]
-        mu_vars = [
+        mu_errs = [
             fit_dict[peak]["position_uncertainty"]
             for peak in fit_dict
             if fit_dict[peak]["validity"]
         ]
 
         mus = results_dict["pk_pos"] = np.asarray(mus)
-        mu_vars = results_dict["pk_pos_uncertainties"] = np.asarray(mu_vars) ** 2
+        mu_vars = results_dict["pk_pos_uncertainties"] = np.asarray(mu_errs) ** 2
 
         if update_cal_pars is False:
             self.update_results_dict(results_dict)
@@ -702,6 +703,7 @@ class HPGeCalibration:
 
         self.peaks_kev = np.asarray(fitted_peaks_kev)
         self.peak_locs = np.asarray(mus)
+        self.peak_locs_err = np.asarray(mu_errs)
 
         # Now fit the E scale
         try:
@@ -868,6 +870,7 @@ class HPGeCalibration:
         for i_peak, uncal_peak_par in enumerate(uncal_peak_pars):
             peak_kev, mode_guess, wwidth_i, n_bins_i, func_i = uncal_peak_par
             wleft_i, wright_i = wwidth_i
+            print(i_peak,peak_kev,n_events)
             try:
                 euc_min = mode_guess - wleft_i
                 euc_max = mode_guess + wright_i
@@ -962,13 +965,13 @@ class HPGeCalibration:
                     or sum(sum(c) for c in cov_i[mask, :][:, mask]) == 0
                     or np.isnan(sum(sum(c) for c in cov_i[mask, :][:, mask]))
                 ):
-                    log.debug(
+                    print(
                         f"hpge_fit_energy_peaks: cov estimation failed for i_peak={i_peak} at loc {mode_guess:g}"
                     )
                     valid_pk = False
 
                 elif valid_fit is False:
-                    log.debug(
+                    print(
                         f"hpge_fit_energy_peaks: peak fitting failed for i_peak={i_peak} at loc {mode_guess:g}"
                     )
                     valid_pk = False
@@ -978,13 +981,13 @@ class HPGeCalibration:
                     or pars_i is None
                     or np.abs(np.array(errs_i)[mask] / np.array(pars_i)[mask]) < 1e-7
                 ).any() or np.isnan(np.array(errs_i)[mask]).any():
-                    log.debug(
+                    print(
                         f"hpge_fit_energy_peaks: failed for i_peak={i_peak} at loc {mode_guess:g}, parameter error too low"
                     )
                     valid_pk = False
 
                 elif np.abs(total_events[0] - len(energies)) / len(energies) > 0.1:
-                    log.debug(
+                    print(
                         f"hpge_fit_energy_peaks: fit failed for i_peak={i_peak} at loc {mode_guess:g}, total_events is outside limit"
                     )
                     valid_pk = False
@@ -992,16 +995,16 @@ class HPGeCalibration:
                 elif (p_val < allowed_p_val and (csqr[0] / csqr[1]) > 10) or np.isnan(
                     p_val
                 ):
-                    log.debug(
+                    print(
                         f"hpge_fit_energy_peaks: fit failed for i_peak={i_peak}, p-value too low: {p_val}"
                     )
                     valid_pk = False
                 else:
+                    print("valid fit",pars_i)
                     valid_pk = True
 
                 if peak_param == "mu":
                     mu, mu_err = func_i.get_mu(pars_i, errors=errs_i)
-
                 elif peak_param == "mode":
                     mu, mu_err = func_i.get_mode(pars_i, cov=cov_i)
                 else:
@@ -1009,6 +1012,7 @@ class HPGeCalibration:
                         f"hpge_fit_energy_peaks: mode {self.peak_param} not recognized"
                     )
                     raise RuntimeError
+                print(peak_param,mu,mu_err)
 
             except BaseException as e:
                 if e == KeyboardInterrupt:
@@ -1037,6 +1041,7 @@ class HPGeCalibration:
                 "p_value": p_val,
                 "position": mu,
                 "position_uncertainty": mu_err,
+                "n_events": n_events,
             }
 
         results_dict["peak_parameters"] = fit_dict
@@ -1068,7 +1073,7 @@ class HPGeCalibration:
             for peak in fit_dict
             if fit_dict[peak]["validity"]
         ]
-        mu_vars = [
+        mu_errs = [
             fit_dict[peak]["position_uncertainty"]
             for peak in fit_dict
             if fit_dict[peak]["validity"]
@@ -1076,7 +1081,7 @@ class HPGeCalibration:
 
         results_dict["peak_param"] = peak_param
         mus = results_dict["pk_pos"] = np.asarray(mus)
-        mu_vars = results_dict["pk_pos_uncertainties"] = np.asarray(mu_vars) ** 2
+        mu_vars = results_dict["pk_pos_uncertainties"] = np.asarray(mu_errs) ** 2
 
         if update_cal_pars is False:
             self.update_results_dict(results_dict)
@@ -1084,6 +1089,7 @@ class HPGeCalibration:
 
         self.peaks_kev = np.asarray(fitted_peaks_kev)
         self.peak_locs = np.asarray(mus)
+        self.peak_locs_err = np.asarray(mu_errs)
 
         # Now fit the E scale
         try:
@@ -1460,29 +1466,40 @@ class HPGeCalibration:
             interp_energy_kev={"Qbb": 2039.0},
         )
 
-    def plot_cal_fit(self, data, figsize=(12, 8), fontsize=12, erange=(200, 2700)):
+    def plot_cal_fit(self, data, figsize=(8, 4.5), fontsize=12, erange=(200, 2700)):
         fig, (ax1, ax2) = plt.subplots(
-            2, 1, sharex=True, gridspec_kw={"height_ratios": [3, 1]}, figsize=figsize
+            2, 1, sharex=True, gridspec_kw={"height_ratios": [2, 1]}, figsize=figsize,
+            facecolor="white"
         )
 
         cal_bins = np.linspace(0, np.nanmax(self.peak_locs) * 1.1, 20)
 
-        ax1.scatter(self.peaks_kev, self.peak_locs, marker="x", c="b")
-
-        ax1.plot(pgf.nb_poly(cal_bins, self.pars), cal_bins, lw=1, c="g")
-
-        ax1.grid()
+        ax1.scatter(self.peaks_kev, self.peak_locs, marker="x", c="b",label="fit results")
+        cal_string = ""
+        for i, par in enumerate(self.pars):
+            if i == 0:
+                cal_string += f"{par:.4f}"
+            elif i == 1:
+                cal_string += f" + {par:.4f} x ADC"
+            else:
+                cal_string += f" + {par*1e9:.2f}e-9 x ADC**2"
+        ax1.plot(pgf.nb_poly(cal_bins, self.pars), cal_bins, lw=1, c="r",ls="-",
+                 label=f"calibration curve:\n{cal_string}")
         ax1.set_xlim([erange[0], erange[1]])
         ax1.set_ylabel("Energy (ADC)", fontsize=fontsize)
-        ax2.scatter(
-            self.peaks_kev,
-            pgf.nb_poly(np.array(self.peak_locs), self.pars) - self.peaks_kev,
-            marker="x",
-            c="b",
+        ax1.legend(loc="upper left", edgecolor="white")
+
+        residuals = pgf.nb_poly(np.array(self.peak_locs), self.pars) - self.peaks_kev
+        residuals_err = pgf.nb_poly(
+            np.array(self.peak_locs) + np.array(self.peak_locs_err), self.pars
+        ) - pgf.nb_poly(np.array(self.peak_locs), self.pars)
+        ax2.errorbar(
+            self.peaks_kev, residuals, yerr=residuals_err, ls="", marker="x", c="b"
         )
-        ax2.grid()
+        ax2.axhline(0,color="k",ls=":")
         ax2.set_xlabel("Energy (keV)", fontsize=fontsize)
         ax2.set_ylabel("Residuals (keV)", fontsize=fontsize)
+        plt.subplots_adjust(hspace=0)
         plt.close()
         return fig
 
@@ -1555,7 +1572,7 @@ class HPGeCalibration:
         return fig
 
     def plot_fits(
-        self, energies, figsize=(12, 8), fontsize=12, ncols=3, nrows=3, binning_kev=5
+        self, energies, figsize=(16, 9), fontsize=12, ncols=3, nrows=3, binning_kev=5
     ):
         plt.rcParams["font.size"] = fontsize
 
@@ -1563,26 +1580,43 @@ class HPGeCalibration:
             "peak_parameters", None
         )
 
-        fig = plt.figure(figsize=figsize)
+        fig = plt.figure(figsize=figsize, facecolor="white")
         derco = Polynomial(self.pars).deriv().coef
         der = [pgf.nb_poly(5, derco) for _ in list(pk_parameters)]
         for i, peak in enumerate(pk_parameters):
             range_adu = 5 / der[i]
-            plt.subplot(nrows, ncols, i + 1)
+            plt.subplot(nrows, ncols, i + 1, facecolor="white")
             pk_dict = pk_parameters[peak]
             pk_pars = pk_dict["parameters"]
             pk_ranges = pk_dict["range"]
             pk_func = pk_dict["function"]
+            pk_fwhm = pk_dict["fwhm_in_kev"]
+            pk_fwhm_err = pk_dict["fwhm_err_in_kev"]
+            pk_binw = pk_dict["bin_width"]
+            if "n_events" in pk_dict:
+                n_events = pk_dict["n_events"]
+            else:
+                n_events = None
             mu = pk_func.get_mu(pk_pars) if pk_pars is not None else np.nan
-
+                       
             try:
-                binning = np.arange(pk_ranges[0], pk_ranges[1], 0.1 / der[i])
+                binning = np.arange(
+                    pk_ranges[0], pk_ranges[1], pk_binw
+                )  # 0.1 / der[i])
                 bin_cs = (binning[1:] + binning[:-1]) / 2
-
-                counts, bs, bars = plt.hist(energies, bins=binning, histtype="step")
+                e_peak = energies[
+                    (energies > pk_ranges[0]) & (energies < pk_ranges[1])
+                ][:n_events]
+                counts, bs, bars = plt.hist(
+                    e_peak, bins=binning, histtype="step", label=f"{peak:.1f} keV"
+                )
                 if pk_pars is not None:
                     fit_vals = pk_func.get_pdf(bin_cs, *pk_pars, 0) * np.diff(bs)[0]
-                    plt.plot(bin_cs, fit_vals)
+                    plt.plot(
+                        bin_cs,
+                        fit_vals,
+                        label=f"FWHM={pk_fwhm:1.2f}({pk_fwhm_err*100:.0f})keV\np-val={pk_dict['p_value']:.4f}",
+                    )
                     plt.step(
                         bin_cs,
                         [
@@ -1592,16 +1626,17 @@ class HPGeCalibration:
                         where="mid",
                     )
 
-                    plt.annotate(
-                        f"{peak:.1f} keV", (0.02, 0.8), xycoords="axes fraction"
-                    )
-                    plt.annotate(
-                        f"p-value : {pk_dict['p_value']:.4f}",
-                        (0.02, 0.7),
-                        xycoords="axes fraction",
-                    )
+                    #plt.annotate(
+                    #    f"{peak:.1f} keV", (0.02, 0.8), xycoords="axes fraction"
+                    #)
+                    #plt.annotate(
+                    #    f"p-value : {pk_dict['p_value']:.4f}",
+                    #    (0.02, 0.7),
+                    #    xycoords="axes fraction",
+                    #)
                     plt.xlabel("Energy (keV)")
                     plt.ylabel("Counts")
+                    plt.legend(loc="upper left", edgecolor="white")
 
                     plt.xlim([mu - range_adu, mu + range_adu])
                     locs, labels = plt.xticks()
@@ -1630,7 +1665,7 @@ class HPGeCalibration:
         plt.close()
         return fig
 
-    def plot_eres_fit(self, data, erange=(200, 2700), figsize=(12, 8), fontsize=12):
+    def plot_eres_fit(self, data, erange=(200, 2700), figsize=(8, 4.5), fontsize=12):
         plt.rcParams["font.size"] = fontsize
 
         pk_parameters = self.results[list(self.results)[-1]].get(
@@ -1676,10 +1711,11 @@ class HPGeCalibration:
                             interp_fwhm_name = field.replace("_fwhm_in_kev", "")
 
         fig, (ax1, ax2) = plt.subplots(
-            2, 1, sharex=True, gridspec_kw={"height_ratios": [3, 1]}, figsize=figsize
+            2, 1, sharex=True, gridspec_kw={"height_ratios": [2, 1]}, figsize=figsize, facecolor="white"
         )
         if len(np.where((~np.isnan(fwhms)) & (~np.isnan(dfwhms)))[0]) > 0:
-            ax1.errorbar(fwhm_peaks, fwhms, yerr=dfwhms, marker="x", ls=" ", c="black")
+            ax1.errorbar(fwhm_peaks, fwhms, yerr=dfwhms,marker="x",ls="",c="b",
+                         label="fit results")
 
             fwhm_slope_bins = np.arange(erange[0], erange[1], 10)
 
@@ -1698,6 +1734,9 @@ class HPGeCalibration:
                         qbb_line_vy[0] = low_lim
                     if up_lim > qbb_line_vy[1]:
                         qbb_line_vy[1] = up_lim
+                    fwhm = fwhm_dict[f"{interp_fwhm_name}_fwhm_in_kev"]
+                    fwhm_err = fwhm_dict[f"{interp_fwhm_name}_fwhm_err_in_kev"]
+                    qbb = r"Q$_{\beta\beta}$"
                     ax1.plot(
                         qbb_line_hx,
                         [
@@ -1705,8 +1744,9 @@ class HPGeCalibration:
                             fwhm_dict[f"{interp_fwhm_name}_fwhm_in_kev"],
                         ],
                         lw=1,
-                        c="r",
-                        ls="--",
+                        c="k",
+                        ls=":",
+                        label=f"FWHM at {qbb} = {fwhm:1.2f} ± {fwhm_err:1.2f} keV"
                     )
                     ax1.plot(
                         fwhm_slope_bins,
@@ -1714,15 +1754,17 @@ class HPGeCalibration:
                             fwhm_slope_bins, *fwhm_dict["parameters"]
                         ),
                         lw=1,
-                        label=f'{name}, {interp_fwhm_name} fwhm: {fwhm_dict[f"{interp_fwhm_name}_fwhm_in_kev"]:1.2f} +- {fwhm_dict[f"{interp_fwhm_name}_fwhm_err_in_kev"]:1.2f} keV',
+                        color="r",
+                        label="resolution curve"
                     )
-                    ax1.plot(qbb_line_vx, qbb_line_vy, lw=1, c="r", ls="--")
-
+                    ax1.plot(qbb_line_vx, qbb_line_vy, lw=1, c="k", ls=":")
             ax1.set_xlim(erange)
             if np.isnan(low_lim):
                 low_lim = 0
             ax1.set_ylim([low_lim, None])
-            ax1.set_ylabel("FWHM energy resolution (keV)")
+            ax1.set_ylabel("FWHM (keV)")
+            ax1.legend(loc="upper left", edgecolor="white")
+
             for _, fwhm_dict in fwhm_dicts.items():
                 ax2.plot(
                     fwhm_peaks,
@@ -1733,12 +1775,14 @@ class HPGeCalibration:
                         )
                     )
                     / dfwhms,
-                    lw=0,
+                    c="b",
+                    ls="",
                     marker="x",
                 )
-            ax2.plot(erange, [0, 0], color="black", lw=0.5)
+            ax2.plot(erange, [0, 0], color="k",ls=":")
             ax2.set_xlabel("Energy (keV)")
-            ax2.set_ylabel("Normalised Residuals")
+            ax2.set_ylabel("Norm. Residuals")
+        plt.subplots_adjust(hspace=0)
         plt.tight_layout()
         plt.close()
         return fig
