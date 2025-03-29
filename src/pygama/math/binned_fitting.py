@@ -442,3 +442,12 @@ def taylor_mode_max(
     cov_jact = np.matmul(cov, jac.transpose())
     cov = np.matmul(jac, cov_jact)
     return (mode, maximum), cov
+
+
+def gauss_amp_uniform(x, a, mu, sigma, a_bkg):
+    if sigma == 0:
+        invs = np.nan
+    else:
+        invs = 1.0 / sigma
+    z = (x - mu) * invs
+    return a * np.exp(-0.5 * z**2) + a_bkg
