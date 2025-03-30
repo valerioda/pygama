@@ -12,6 +12,7 @@ import numpy as np
 import scipy.stats
 from scipy.interpolate import BSpline, splev, splrep
 from scipy.optimize import minimize
+from scipy.signal import periodogram
 
 from pygama.math.binned_fitting import goodness_of_fit
 from pygama.math.distributions import gauss_on_uniform
@@ -55,13 +56,26 @@ def noise_optimization(
     samples_val = np.arange(opt_dict["start"], opt_dict["stop"], opt_dict["step_val"])
 
     opt_dict_par = opt_dict["optimization"]
-
+    freq_lim = (1e4, 1e6)
     res_dict = {}
     if display > 0:
-        dsp_data = run_one_dsp(tb_data, dsp_proc_chain, db_dict=par_dsp)
-        psd = np.mean(dsp_data["wf_psd"].values.nda, axis=0)
-        sample_us = float(dsp_data["wf_presum"].dt.nda[0]) / 1000
-        freq = np.linspace(0, (1 / sample_us) / 2, len(psd))
+        #dsp_data = run_one_dsp(tb_data, dsp_proc_chain, db_dict=par_dsp)
+        #psd = np.mean(dsp_data["wf_psd"].values.nda, axis=0)
+        #sample_us = float(dsp_data.wf_presum.dt.nda[0]) / 1000
+        #freq = np.linspace(0, (1 / sample_us) / 2, len(psd))
+        data = tb_data.waveform_presummed.values.nda
+        dt = tb_data.waveform_presummed.dt.nda[0]
+        sampling_rate =  1 / dt * 1e9 # rate in Hz
+        nev, wsize = data.shape
+        for j in range(nev):
+            (freq, psd_tmp) = periodogram(data[j], sampling_rate, scaling='density')
+            if j == 0: psd = psd_tmp
+            else: psd += psd_tmp
+        psd = np.array(psd / nev)
+        freq = np.array(freq)
+        rms_total = np.sqrt(np.trapz(psd, freq))
+        idxs = np.where((freq >= freq_lim[0]) & (freq <= freq_lim[1]))
+        rms = np.sqrt(np.trapz(psd[idxs], freq[idxs]))
         fig, ax = plt.subplots(figsize=(12, 6.75), facecolor="white")
         ax.plot(freq, psd)
         ax.set_xscale("log")
@@ -70,7 +84,15 @@ def noise_optimization(
         ax.set_ylabel("power spectral density")
 
         plot_dict = {}
-        plot_dict["nopt"] = {"fft": {"frequency": freq, "psd": psd, "fig": fig}}
+        plot_dict["nopt"] = {
+            "fft": {
+                "frequency": freq,
+                "psd": psd,
+                "rms_total": rms_total,
+                "rms": rms,
+                "fig": fig
+            }
+        }
         plt.close()
 
     result_dict = {}

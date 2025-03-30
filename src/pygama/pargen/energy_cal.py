@@ -228,8 +228,8 @@ class HPGeCalibration:
         )
 
         if len(ixtup) != len(peaks_kev):
-            log.info(
-                f"hpge_find_energy_peaks: only found {len(ixtup)} of {len(peaks_kev)} expected peaks"
+            print(
+                f"hpge_find_energy_peaks: only found {len(ixtup)} ({ixtup}) of {len(peaks_kev)} expected peaks {peaks_kev}"
             )
 
         self.update_results_dict(

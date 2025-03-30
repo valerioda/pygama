@@ -14,7 +14,7 @@ from lgdo import Table
 from scipy.signal import convolve, convolve2d
 from scipy.stats import chi2
 
-from pygama.math.distributions import gauss_on_step
+import pygama.math.distributions as pmd
 from pygama.pargen.data_cleaning import generate_cuts
 from pygama.pargen.dsp_optimize import run_one_dsp
 from pygama.pargen.energy_optimisation import fom_fwhm_with_alpha_fit
@@ -30,7 +30,6 @@ def dplms_ge_dict(
     dplms_dict: dict,
     decay_const: float = 0,
     ene_par: str = "dplmsEmax",
-    p_val_lim: float = 10**-20,
     display: int = 0,
 ) -> dict:
     """
@@ -81,6 +80,7 @@ def dplms_ge_dict(
     log.info(
         f"total events {len(raw_fft)}, {len(bls)} baseline selected in {(t1-t0):.2f} s"
     )
+    print(f"total events {len(raw_fft)}, {len(bls)} baseline selected in {(t1-t0):.2f} s")
 
     log.info(
         f'Calculating noise matrix of length {dplms_dict["length"]} n. events: {bls.shape[0]}, size: {bls.shape[1]}'
@@ -107,7 +107,7 @@ def dplms_ge_dict(
         "peak": peaks_kev[-1],
         "kev_width": kev_widths[-1],
         "parameter": ene_par,
-        "func": gauss_on_step,
+        "func": eval(dplms_dict["fom_func"]),
     }
 
     if display > 0:
@@ -131,12 +131,14 @@ def dplms_ge_dict(
         log_msg = f"Case {i} ->"
         for key, value in coeff_values.items():
             log_msg += f" {key} = {value}"
+        print(log_msg)
 
         grid_dict[i] = coeff_values
 
         sel_dict = signal_selection(dsp_cal, dplms_dict, coeff_values)
         wfs = dsp_cal[wf_field].nda[sel_dict["idxs"], :]
         log.info(f"... {len(wfs)} signals after signal selection")
+        print(f"... {len(wfs)} signals after signal selection")
 
         ref, rmat, pmat, fmat = signal_matrices(wfs, dplms_dict["length"], decay_const)
 
@@ -183,13 +185,14 @@ def dplms_ge_dict(
         log.info(
             f"FWHM = {fwhm:.2f} ± {fwhm_err:.2f} keV, p_val={p_val} evaluated in {time.time()-t_tmp:.1f} s"
         )
+        print(f"FWHM = {fwhm:.2f} ± {fwhm_err:.2f} keV, p_val={p_val} evaluated in {time.time()-t_tmp:.1f} s")
         grid_dict[i]["fwhm"] = fwhm
         grid_dict[i]["fwhm_err"] = fwhm_err
         grid_dict[i]["alpha"] = alpha
         if (
             fwhm < dplms_dict["fwhm_limit"]
             and fwhm_err < dplms_dict["err_limit"]
-            and p_val > p_val_lim
+            and p_val > dplms_dict["p_val_lim"]
             and ~np.isnan(fwhm)
         ):
             if fwhm < min_fom:
@@ -206,7 +209,6 @@ def dplms_ge_dict(
         ft_coeff = best_case_values.get("ft", dplms_dict["dp_def"]["nm"])
         rt_coeff = best_case_values.get("rt", dplms_dict["dp_def"]["rt"])
         pt_coeff = best_case_values.get("pt", dplms_dict["dp_def"]["pt"])
-
         if all(
             v is not None
             for v in [
@@ -222,10 +224,13 @@ def dplms_ge_dict(
             log.info(
                 f"\nBest case: FWHM = {fwhm:.2f} ± {fwhm_err:.2f} keV, ctc {alpha}"
             )
+            print(f"\nBest case: FWHM = {fwhm:.2f} ± {fwhm_err:.2f} keV, ctc {alpha}")
         else:
             log.debug("Some values are missing in the best case results")
+            print("Some values are missing in the best case results")
     else:
         log.debug("Filter synthesis failed")
+        print("Filter synthesis failed")
         nm_coeff = dplms_dict["dp_def"]["nm"]
         ft_coeff = dplms_dict["dp_def"]["ft"]
         rt_coeff = dplms_dict["dp_def"]["rt"]
@@ -260,7 +265,7 @@ def dplms_ge_dict(
                 "ft": ft_coeff,
                 "rt": rt_coeff,
                 "pt": pt_coeff,
-            },
+            }
         }
     }
     out_alpha_dict = {
