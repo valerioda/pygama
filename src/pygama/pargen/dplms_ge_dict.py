@@ -80,7 +80,6 @@ def dplms_ge_dict(
     log.info(
         f"total events {len(raw_fft)}, {len(bls)} baseline selected in {(t1-t0):.2f} s"
     )
-    print(f"total events {len(raw_fft)}, {len(bls)} baseline selected in {(t1-t0):.2f} s")
 
     log.info(
         f'Calculating noise matrix of length {dplms_dict["length"]} n. events: {bls.shape[0]}, size: {bls.shape[1]}'
@@ -131,14 +130,13 @@ def dplms_ge_dict(
         log_msg = f"Case {i} ->"
         for key, value in coeff_values.items():
             log_msg += f" {key} = {value}"
-        print(log_msg)
+        log.info(log_msg)
 
         grid_dict[i] = coeff_values
 
         sel_dict = signal_selection(dsp_cal, dplms_dict, coeff_values)
         wfs = dsp_cal[wf_field].nda[sel_dict["idxs"], :]
         log.info(f"... {len(wfs)} signals after signal selection")
-        print(f"... {len(wfs)} signals after signal selection")
 
         ref, rmat, pmat, fmat = signal_matrices(wfs, dplms_dict["length"], decay_const)
 
@@ -185,7 +183,6 @@ def dplms_ge_dict(
         log.info(
             f"FWHM = {fwhm:.2f} ± {fwhm_err:.2f} keV, p_val={p_val} evaluated in {time.time()-t_tmp:.1f} s"
         )
-        print(f"FWHM = {fwhm:.2f} ± {fwhm_err:.2f} keV, p_val={p_val} evaluated in {time.time()-t_tmp:.1f} s")
         grid_dict[i]["fwhm"] = fwhm
         grid_dict[i]["fwhm_err"] = fwhm_err
         grid_dict[i]["alpha"] = alpha
@@ -224,13 +221,10 @@ def dplms_ge_dict(
             log.info(
                 f"\nBest case: FWHM = {fwhm:.2f} ± {fwhm_err:.2f} keV, ctc {alpha}"
             )
-            print(f"\nBest case: FWHM = {fwhm:.2f} ± {fwhm_err:.2f} keV, ctc {alpha}")
         else:
             log.debug("Some values are missing in the best case results")
-            print("Some values are missing in the best case results")
     else:
         log.debug("Filter synthesis failed")
-        print("Filter synthesis failed")
         nm_coeff = dplms_dict["dp_def"]["nm"]
         ft_coeff = dplms_dict["dp_def"]["ft"]
         rt_coeff = dplms_dict["dp_def"]["rt"]
